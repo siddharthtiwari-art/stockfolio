@@ -1,0 +1,47 @@
+workflows:
+  android-release:
+    name: Stockfolio Android Release
+    max_build_duration: 60
+    environment:
+      flutter: 3.32.0
+      java: 17
+      groups:
+        - keystore_credentials   # CM environment variable group (set in Codemagic UI)
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Analyze
+        script: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build APK (debug — for quick iteration)
+        script: |
+          flutter build apk \
+            --debug \
+            --target lib/main.dart
+
+      - name: Build APK (release)
+        script: |
+          # Decode keystore from base64 env var if provided
+          if [ -n "$CM_KEYSTORE" ]; then
+            echo $CM_KEYSTORE | base64 --decode > /tmp/keystore.jks
+            flutter build apk \
+              --release \
+              --target lib/main.dart \
+              --dart-define=FLUTTER_TARGET=release
+          else
+            echo "No keystore — building unsigned release APK"
+            flutter build apk --release --target lib/main.dart
+          fi
+
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - your@email.com        # ← replace with your email
+        notify:
+          success: true
+          failure: true
